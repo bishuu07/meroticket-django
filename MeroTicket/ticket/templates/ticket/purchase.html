@@ -1,0 +1,7 @@
+<h1>Purchase {{ ticket_type.name }}</h1>
+<form method="post">
+    {% csrf_token %}
+    <label>Phone Number:</label>
+    <input type="text" name="phone" required>
+    <button type="submit">Pay (Khalti Integration Later)</button>
+</form>

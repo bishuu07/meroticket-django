@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment</title>
+    <script src="https://khalti.com/static/khalti-checkout.js"></script>
+</head>
+<body>
+    <h3>Pay for {{ ticket.ticket_type.name }}</h3>
+    <p>Price: Rs. {{ ticket.ticket_type.price }}</p>
+
+    <button id="khalti-button">Pay with Khalti</button>
+
+    <script>
+var ticketId = {{ ticket_id|default:'null' }};  // pass from view
+
+var config = {
+    key: "{{ KHALTI_PUBLIC_KEY }}",
+    amount: {{ ticket_type.price }} * 100, // in paisa
+    onSuccess (payload) {
+        // Send payload to verify payment
+        fetch("{% url 'verify_payment' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify({
+                ...payload,
+                ticket_id: ticketId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success){
+                window.location.href = "{% url 'ticket_success' ticket_id=ticket_id %}";
+            } else {
+                alert("Payment verification failed!");
+            }
+        });
+    },
+    onError (error) {
+        console.log(error);
+        alert("Payment failed!");
+    },
+    onClose () { console.log("widget closed"); }
+};
+</script>
+
+</body>
+</html>
