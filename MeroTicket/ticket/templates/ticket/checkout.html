@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Checkout</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <script src="https://khalti.com/static/khalti-checkout.js"></script>
 </head>
-<body>
 
-<div class="container mt-4">
+<body>
+<div class="container mt-5">
+
     <h3>Ticket Summary</h3>
 
     <div class="card p-3 mt-3">
@@ -15,55 +16,70 @@
         <p>Price: Rs. {{ ticket_type.price }}</p>
         <p>Event: {{ ticket_type.event.name }}</p>
 
-        <button id="khalti-button" class="btn btn-success mt-3">Buy Now</button>
+        <!-- PAYMENT FORM -->
+        <form id="khaltiForm">
+            {% csrf_token %}
+            <input type="hidden" id="ticket_type_id" value="{{ ticket_type.id }}">
+
+            <div class="mb-3">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="name" class="form-control" placeholder="Enter your full name" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Phone Number</label>
+                <input type="text" id="phone" class="form-control" placeholder="98XXXXXXXX" required>
+            </div>
+
+            <button id="payBtn" class="btn btn-success w-100">
+                Proceed to Khalti
+            </button>
+        </form>
+
     </div>
 </div>
 
 <script>
-    var config = {
-        "publicKey": "{{ KHALTI_PUBLIC_KEY }}",
-        "productIdentity": "{{ ticket_type.id }}",
-        "productName": "{{ ticket_type.name }}",
-        "productUrl": window.location.href,
-        "eventHandler": {
-            onSuccess (payload) {
-                // Send payload to Django to verify and create ticket
-                fetch("{% url 'verify_payment' %}", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": "{{ csrf_token }}"
-                    },
-                    body: JSON.stringify({
-                        "token": payload.token,
-                        "amount": payload.amount,
-                        "ticket_type_id": {{ ticket_type.id }}
-                    })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.success){
-                        // Redirect to ticket success page
-                        window.location.href = `/success/${data.ticket_id}/`;
-                    } else {
-                        alert("Payment verification failed!");
-                    }
-                });
-            },
-            onError (error) {
-                console.log(error);
-                alert("Payment failed!");
-            },
-            onClose () {
-                console.log("Widget closed");
-            }
-        }
-    };
+document.getElementById('khaltiForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
 
-    var checkout = new KhaltiCheckout(config);
-    document.getElementById("khalti-button").onclick = function () {
-        checkout.show({amount: {{ ticket_type.price|floatformat:0 }} * 100, sandbox: true});
-    };
+    const ticketTypeId = document.getElementById('ticket_type_id').value;
+    const name = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const csrftoken = '{{ csrf_token }}';
+
+    if (!name || !phone) {
+        alert("Please fill in all the fields.");
+        return;
+    }
+
+    // 🔥 SEND DATA TO initiate_khalti
+    const response = await fetch("{% url 'initiate_khalti' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken
+        },
+        body: JSON.stringify({
+            ticket_type_id: ticketTypeId,
+            name: name,
+            phone: phone
+        })
+    });
+
+    const data = await response.json();
+
+    console.log("Initiate response:", data);
+
+    if (data.payment_url) {
+        // ⭐ REDIRECT TO KHALTI PAYMENT PAGE
+        window.location.href = data.payment_url;
+    } 
+    else {
+        alert("Payment initiation failed. Check console.");
+        console.log(data);
+    }
+});
 </script>
 
 </body>

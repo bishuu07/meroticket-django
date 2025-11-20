@@ -126,7 +126,51 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Khalti Payment Settings
-KHALTI_PUBLIC_KEY = "06d8e7797aca4416b64e1083e7b7e852"
-KHALTI_SECRET_KEY = "599d5596ff9f4d3691f69c1629b85cb7"
+KHALTI_PUBLIC_KEY = "b2184073be3b43df91b57d9d1e8b13c5"
+KHALTI_SECRET_KEY = "81376d71c2a94ea9a449ec0d01d73606"
 KHALTI_VERIFY_URL = "https://a.khalti.com/api/v2/epayment/lookup/"
 KHALTI_INITIATE_URL = "https://a.khalti.com/api/v2/epayment/initiate/"
+
+# DEBUG logging to console for development
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "detailed": {
+            "format": "[{levelname}] {asctime} {name} {module}:{lineno} - {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "detailed",
+        },
+    },
+    "loggers": {
+        # Django internals
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # Your app
+        "ticket": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # Requests library (HTTP level)
+        "urllib3": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "requests": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
+
