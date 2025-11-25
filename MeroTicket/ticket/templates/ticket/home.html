@@ -22,17 +22,31 @@
 {% if event.ticket_types.all %}
     <ul class="list-group">
         {% for t in event.ticket_types.all %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-                <strong>{{ t.name }}</strong><br>
-                Rs. {{ t.price }}<br>
-                <small class="text-muted">
-                    <!--Remaining: {{ t.limit }}-->
-                </small>
-            </div>
-           <a href="{% url 'buy_ticket' t.id %}" class="btn btn-primary btn-sm">Buy Now</a>
+        <li class="list-group-item">
+    <form action="{% url 'buy_ticket' t.id %}" method="get" class="d-flex justify-content-between align-items-center">
+        <div>
+            <strong>{{ t.name }}</strong><br>
+            Rs. {{ t.price }}<br>
+        </div>
 
-        </li>
+        <!-- Quantity selector -->
+        <input
+            type="number"
+            name="qty"
+            value="1"
+            min="1"
+            max="{{ t.limit|default:10 }}"
+            class="form-control form-control-sm"
+            style="width: 70px;"
+        >
+
+        <button type="submit" class="btn btn-primary btn-sm ms-2">
+            Buy
+        </button>
+        
+    </form>
+</li>
+
         {% endfor %}
     </ul>
 {% else %}

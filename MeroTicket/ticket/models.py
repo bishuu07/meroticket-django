@@ -49,7 +49,7 @@ class Ticket(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE)
-
+    #serial_number = models.PositiveIntegerField(null=True, blank=True, editable=False)
     purchaser_phone = models.CharField(max_length=20, blank=True)
     purchase_time = models.DateTimeField(auto_now_add=True)
 
@@ -78,6 +78,8 @@ class Ticket(models.Model):
         return f"{self.ticket_type.name} - {self.id}"
 
 
+
+
 class ScanLog(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE)
     staff = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -95,4 +97,6 @@ class PaymentOrder(models.Model):
     phone = models.CharField(max_length=20)
     raw_response = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    quantity = models.PositiveIntegerField(default=1)   # ← NEW
+
 

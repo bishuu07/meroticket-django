@@ -6,7 +6,7 @@
     <button type="submit">Pay (Khalti Integration Later)</button>
 </form> -->
 
-<h1>Purchase {{ ticket_type.name }}</h1>
+<!--<h1>Purchase {{ ticket_type.name }}</h1>
 
 <form method="post">
     {% csrf_token %}
@@ -20,5 +20,22 @@
     <input type="text" name="phone" required>
 
     <button type="submit">Buy Now</button>
+</form> -->
+<h1>Purchase {{ ticket_type.name }}</h1>
+
+<form method="post">
+    {% csrf_token %}
+
+    <input type="hidden" name="ticket_type_id" value="{{ ticket_type.id }}">
+    <input type="hidden" name="qty" value="{{ qty }}">
+
+    <label>Name:</label>
+    <input type="text" name="name" required>
+
+    <label>Phone Number:</label>
+    <input type="text" name="phone" required>
+
+    <button type="submit">Buy Now</button>
 </form>
+
 

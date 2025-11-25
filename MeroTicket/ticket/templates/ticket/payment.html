@@ -24,9 +24,16 @@ var config = {
                 "Content-Type": "application/json",
                 "X-CSRFToken": "{{ csrf_token }}"
             },
-            body: JSON.stringify({
+            '''body: JSON.stringify({
                 ...payload,
-                ticket_id: ticketId
+                ticket_id: ticketId'''
+                body: JSON.stringify({
+    ticket_type_id: ticketTypeId,
+    name: name,
+    phone: phone,
+    qty: document.getElementById('qty').value
+})
+
             })
         })
         .then(res => res.json())
