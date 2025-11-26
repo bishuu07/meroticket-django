@@ -290,11 +290,25 @@ def khalti_callback(request):
                 )
 
                 # Generate unique QR code
+                '''qr_payload = f"TICKET-ID:{ticket.id}-{ticket.qr_token}"
                 qr_payload = f"TICKET-ID:{ticket.id}-{ticket.qr_token}"
+
                 qr_img = qrcode.make(qr_payload)
                 qr_io = BytesIO()
                 qr_img.save(qr_io, format="PNG")
                 qr_io.seek(0)
+                ticket.qr_image.save(f"ticket_{ticket.id}.png", File(qr_io), save=False)
+'''             
+                # Correct QR payload
+                qr_payload = f"TICKET:{ticket.id}:{ticket.qr_token}"
+
+# Generate QR PNG
+                qr_img = qrcode.make(qr_payload)
+                qr_io = BytesIO()
+                qr_img.save(qr_io, format="PNG")
+                qr_io.seek(0)
+
+# Save to model
                 ticket.qr_image.save(f"ticket_{ticket.id}.png", File(qr_io), save=False)
 
                 # Generate PDF receipt
