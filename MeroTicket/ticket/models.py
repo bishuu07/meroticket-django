@@ -11,6 +11,8 @@ class Event(models.Model):
     description = models.TextField(blank=True, null=True)
     active = models.BooleanField(default=True)  # Show on frontend or not
     date = models.DateTimeField()
+    logo = models.ImageField(upload_to="event_logos/", null=True, blank=True)  # 👈 NEW
+
     
     def __str__(self):
         return self.name
@@ -51,6 +53,8 @@ class Ticket(models.Model):
     ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE)
     #serial_number = models.PositiveIntegerField(null=True, blank=True, editable=False)
     purchaser_phone = models.CharField(max_length=20, blank=True)
+    purchaser_name = models.CharField(max_length=200, null=True, blank=True)
+
     purchase_time = models.DateTimeField(auto_now_add=True)
 
     payment_status = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default="PENDING")

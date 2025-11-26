@@ -202,7 +202,7 @@ def initiate_khalti(request):
 
 
 
-logger = logging.getLogger(__name__)
+
 
 
 
@@ -279,66 +279,71 @@ def khalti_callback(request):
             tt.save(update_fields=["limit", "sold"])
 
             # Create multiple tickets
-            tickets = []
-            for _ in range(qty):
-                ticket = Ticket.objects.create(
-                    ticket_type=tt,
-                    purchaser_phone=po.phone,
-                    payment_status="PAID",
-                    khalti_ref=lookup.get("transaction_id") or lookup.get("tidx") or "",
-                    status="VALID"
-                )
+        tickets = []
+        for _ in range(qty):
+            ticket = Ticket.objects.create(
+                ticket_type=tt,
+                purchaser_name=po.name,
+                purchaser_phone=po.phone,
+                payment_status="PAID",
+                khalti_ref=lookup.get("transaction_id") or lookup.get("tidx") or "",
+                status="VALID"
+            )
 
-                # Generate unique QR code
-                '''qr_payload = f"TICKET-ID:{ticket.id}-{ticket.qr_token}"
-                qr_payload = f"TICKET-ID:{ticket.id}-{ticket.qr_token}"
+            # Generate QR
+            qr_payload = f"TICKET:{ticket.id}:{ticket.qr_token}"
+            qr_img = qrcode.make(qr_payload)
+            qr_io = BytesIO()
+            qr_img.save(qr_io, format="PNG")
+            qr_io.seek(0)
+            ticket.qr_image.save(f"ticket_{ticket.id}.png", File(qr_io), save=False)
 
-                qr_img = qrcode.make(qr_payload)
-                qr_io = BytesIO()
-                qr_img.save(qr_io, format="PNG")
+            # Generate PDF receipt
+            try:
+                pdf_io = BytesIO()
+                c = canvas.Canvas(pdf_io, pagesize=A4)
+
+                x, y = 50, 800
+
+                # Event Logo
+                event_logo = ticket.ticket_type.event.image
+                if event_logo:
+                    try:
+                        c.drawImage(event_logo.path, x, y - 80, width=120, height=120, preserveAspectRatio=True, mask='auto')
+                        y -= 140
+                    except:
+                        pass
+
+                # Title
+                c.setFont("Helvetica-Bold", 16)
+                c.drawString(x, y, "MeroTicket - Receipt")
+
+                c.setFont("Helvetica", 12)
+                y -= 30
+                c.drawString(x, y, f"Ticket ID: {ticket.id}")
+                y -= 20
+                c.drawString(x, y, f"Event: {ticket.ticket_type.event.name}")
+                y -= 20
+                c.drawString(x, y, f"Ticket Type: {ticket.ticket_type.name}")
+                y -= 20
+                c.drawString(x, y, f"Amount (Rs): {ticket.ticket_type.price}")
+
+                # QR
+                y -= 30
                 qr_io.seek(0)
-                ticket.qr_image.save(f"ticket_{ticket.id}.png", File(qr_io), save=False)
-'''             
-                # Correct QR payload
-                qr_payload = f"TICKET:{ticket.id}:{ticket.qr_token}"
+                qr_reader = ImageReader(qr_io)
+                c.drawImage(qr_reader, x, y - 160, width=150, height=150)
 
-# Generate QR PNG
-                qr_img = qrcode.make(qr_payload)
-                qr_io = BytesIO()
-                qr_img.save(qr_io, format="PNG")
-                qr_io.seek(0)
+                c.save()
+                pdf_io.seek(0)
+                ticket.receipt_pdf.save(f"receipt_{ticket.id}.pdf", File(pdf_io), save=False)
 
-# Save to model
-                ticket.qr_image.save(f"ticket_{ticket.id}.png", File(qr_io), save=False)
+            except Exception as e:
+                logger.exception("PDF failed for ticket %s", ticket.id)
 
-                # Generate PDF receipt
-                try:
-                    pdf_io = BytesIO()
-                    c = canvas.Canvas(pdf_io, pagesize=A4)
-                    x, y = 50, 800
-                    c.setFont("Helvetica-Bold", 16)
-                    c.drawString(x, y, "MeroTicket - Receipt")
-                    c.setFont("Helvetica", 12)
-                    y -= 30
-                    c.drawString(x, y, f"Ticket ID: {ticket.id}")
-                    y -= 20
-                    c.drawString(x, y, f"Event: {ticket.ticket_type.event.name}")
-                    y -= 20
-                    c.drawString(x, y, f"Ticket Type: {ticket.ticket_type.name}")
-                    y -= 20
-                    c.drawString(x, y, f"Amount (Rs): {ticket.ticket_type.price}")
-                    y -= 30
-                    qr_io.seek(0)
-                    qr_reader = ImageReader(qr_io)
-                    c.drawImage(qr_reader, x, y-160, width=150, height=150)
-                    c.save()
-                    pdf_io.seek(0)
-                    ticket.receipt_pdf.save(f"receipt_{ticket.id}.pdf", File(pdf_io), save=False)
-                except Exception:
-                    logger.exception("Failed generating PDF for ticket id=%s", ticket.id)
+            ticket.save()
+            tickets.append(ticket)   # NOW INSIDE LOOP
 
-                ticket.save()
-                tickets.append(ticket)
 
     except TicketType.DoesNotExist:
         logger.exception("TicketType not found for PaymentOrder %s", po.id)
