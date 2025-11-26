@@ -27,8 +27,8 @@
             <img src="{{ ticket.qr_image.url }}" width="180" class="img-fluid border p-2">
 
             <br><br>
-            <a href="{% url 'download_ticket_pdf' ticket.id %}" class="btn btn-primary btn-sm">
-                ⬇ Download Ticket PDF
+            <a href="{% url 'download_ticket_png' ticket.id %}" class="btn btn-primary btn-sm">
+                ⬇ Download Ticket PNG
             </a>
 
             <hr>

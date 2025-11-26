@@ -16,7 +16,7 @@ urlpatterns = [
     #path('verify-payment/', verify_payment, name='verify_payment'),
     path('initiate-khalti/', views.initiate_khalti, name='initiate_khalti'),
     path('khalti/callback/', views.khalti_callback, name='khalti_callback'),
-    path('ticket/<uuid:ticket_id>/download/', views.download_ticket_pdf, name='download_ticket_pdf'),
+    path('ticket/<uuid:ticket_id>/download/', views.download_ticket_png, name='download_ticket_png'),
     #path('scan/', views.scanner_page, name='scanner_page'),
     path('api/verify-ticket/', views.verify_ticket, name='verify_ticket'),
     path("login/", auth_views.LoginView.as_view(template_name="auth/login.html"), name="login"),

@@ -363,7 +363,7 @@ def khalti_callback(request):
 
 
 
-def download_ticket_pdf(request, ticket_id):
+'''def download_ticket_pdf(request, ticket_id):
     ticket = get_object_or_404(Ticket, id=ticket_id)
 
     response = HttpResponse(content_type='application/pdf')
@@ -397,7 +397,52 @@ def download_ticket_pdf(request, ticket_id):
     buffer.close()
     response.write(pdf)
 
+    return response'''
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
+from .models import Ticket
+
+def download_ticket_png(request, ticket_id):
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+
+    # Create a white canvas (PNG image)
+    width, height = 800, 1000
+    image = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(image)
+
+    # Load fonts (PIL default font used if custom not found)
+    try:
+        title_font = ImageFont.truetype("arial.ttf", 36)
+        text_font = ImageFont.truetype("arial.ttf", 28)
+    except:
+        title_font = ImageFont.load_default()
+        text_font = ImageFont.load_default()
+
+    # ---- LOAD QR IMAGE ----
+    qr_img = Image.open(ticket.qr_image.path).resize((250, 250))
+    image.paste(qr_img, (50, 50))
+
+    # ---- ADD TEXT ----
+    draw.text((50, 330), "E-Ticket Confirmation", font=title_font, fill="black")
+
+    draw.text((50, 400), f"Ticket ID: {ticket.id}", font=text_font, fill="black")
+    draw.text((50, 450), f"Event: {ticket.ticket_type.event.name}", font=text_font, fill="black")
+    draw.text((50, 500), f"Ticket Type: {ticket.ticket_type.name}", font=text_font, fill="black")
+    draw.text((50, 550), f"Price: Rs. {ticket.ticket_type.price}", font=text_font, fill="black")
+    draw.text((50, 600), f"Phone: {ticket.purchaser_phone}", font=text_font, fill="black")
+
+    # ---- EXPORT PNG ----
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type="image/png")
+    response["Content-Disposition"] = f'attachment; filename="ticket-{ticket.id}.png"'
+
     return response
+
 
 
 

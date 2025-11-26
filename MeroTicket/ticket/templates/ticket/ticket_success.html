@@ -56,11 +56,11 @@
             <img src="data:image/png;base64,{{ qr }}" class="qr-img mt-2">
 
             <div class="mt-4">
-                <a href="{% url 'download_ticket_pdf' ticket.id %}" class="btn btn-primary w-100">
+                <a href="{% url 'download_ticket_png' ticket.id %}" class="btn btn-primary w-100">
                     ⬇ Download Ticket (PDF)
                 </a>
                 <a id="autoDownload{{ ticket.id }}" 
-                    href="{% url 'download_ticket_pdf' ticket.id %}" 
+                    href="{% url 'download_ticket_png' ticket.id %}" 
                     style="display:none;"></a>
 
             </div>
