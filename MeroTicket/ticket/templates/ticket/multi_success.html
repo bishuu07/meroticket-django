@@ -32,7 +32,42 @@
             </a>
 
             <hr>
+            <a id="autoDownload{{ ticket.id }}" 
+   href="{% url 'download_ticket_pdf' ticket.id %}"
+   style="display:none;"></a>
         </div>
+        {% comment %} <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const firstPdfLink = document.querySelector("a[href*='download_ticket_pdf']");
+            if (firstPdfLink) {
+                setTimeout(() => {
+                    const link = document.createElement("a");
+                    link.href = firstPdfLink.href;
+                    link.download = "";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }, 800); // small delay for page load
+            }
+        });
+        </script> {% endcomment %}
+        <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const links = document.querySelectorAll("[id^='autoDownload']");
+
+            let delay = 600;
+
+            links.forEach(link => {
+                setTimeout(() => {
+                    link.click();
+                }, delay);
+
+                delay += 800; // avoid browsers blocking multiple downloads at exact same time
+            });
+        });
+        </script>
+
+
         {% endfor %}
 
     </div>
