@@ -73,3 +73,8 @@ class TicketTypeInline(admin.TabularInline):
 class EventAdmin(admin.ModelAdmin):
     list_display = ['name', 'date', 'active']
     inlines = [TicketTypeInline]
+
+'''@admin.register(ScanLog)
+class ScanLogAdmin(admin.ModelAdmin):
+    list_display = ("ticket", "staff", "scanned_at", "result")
+    search_fields = ("ticket__id", "staff__username", "result")'''

@@ -1,0 +1,98 @@
+{% extends 'ticket/base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container py-4">
+    <h2 class="text-center mb-4">🎫 Ticket Scanner (Staff Only)</h2>
+
+    {% if not request.user.is_staff %}
+        <div class="alert alert-danger">You are not authorized to access this page.</div>
+        <a href="{% url 'home' %}" class="btn btn-primary">Back to Home</a>
+    {% else %}
+
+        <div id="reader" style="width:400px; margin:auto;"></div>
+
+        <div class="mt-4 text-center">
+            <button onclick="restartScanner()" class="btn btn-secondary">Restart Scanner</button>
+            <a href="{% url 'user_dashboard' %}" class="btn btn-link">Back to Dashboard</a>
+        </div>
+
+        <div id="scan-result" class="mt-4 text-center"></div>
+
+        <!-- QR SCANNING LIBRARY -->
+        <script src="https://unpkg.com/html5-qrcode"></script>
+
+        <script>
+            let html5QrcodeScanner;
+
+            function startScanner() {
+                html5QrcodeScanner = new Html5Qrcode("reader");
+
+                html5QrcodeScanner.start(
+                    { facingMode: "environment" },  
+                    {
+                        fps: 10,
+                        qrbox: 250
+                    },
+                    qrCodeSuccess
+                ).catch(err => {
+                    console.error("Camera Error:", err);
+                    document.getElementById("scan-result").innerHTML =
+                        `<div class="alert alert-danger">Camera not accessible!</div>`;
+                });
+            }
+
+            function restartScanner() {
+                html5QrcodeScanner.stop().then(() => {
+                    startScanner();
+                });
+            }
+
+            function qrCodeSuccess(decodedText) {
+
+                html5QrcodeScanner.stop();
+
+                document.getElementById("scan-result").innerHTML =
+                    `<div class="alert alert-info">Verifying ticket...</div>`;
+
+                fetch("{% url 'verify_ticket' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    body: JSON.stringify({ qr_data: decodedText })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "valid") {
+                        document.getElementById("scan-result").innerHTML =
+                            `<div class="alert alert-success">
+                                Ticket Valid ✔<br>
+                                Event: ${data.event}<br>
+                                Type: ${data.type}<br>
+                            </div>`;
+                    }
+                    else if (data.status === "used") {
+                        document.getElementById("scan-result").innerHTML =
+                            `<div class="alert alert-warning">
+                                Ticket Already Used ❗
+                            </div>`;
+                    }
+                    else {
+                        document.getElementById("scan-result").innerHTML =
+                            `<div class="alert alert-danger">
+                                Invalid Ticket ❌
+                            </div>`;
+                    }
+                });
+            }
+
+            window.onload = startScanner;
+        </script>
+
+    {% endif %}
+</div>
+
+{% endblock %}

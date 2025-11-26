@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ticket',
+    'widget_tweaks',
 ]
 
 MIDDLEWARE = [
@@ -184,3 +185,5 @@ LOGGING = {
     },
 }
 
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/scanner/'

@@ -13,7 +13,7 @@ from django.conf import settings
 import uuid, os, json, requests, qr_code, logging
 from django.views.decorators.csrf import csrf_exempt
 from io import BytesIO
-from django.http import HttpResponse, JsonResponse,  HttpResponseBadRequest
+from django.http import HttpResponse, JsonResponse,  HttpResponseBadRequest, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.core.files import File
 from reportlab.pdfgen import canvas
@@ -22,6 +22,8 @@ from reportlab.lib.utils import ImageReader
 from django.urls import reverse
 from reportlab.lib.pagesizes import letter
 from django.db import transaction
+from django.contrib.auth.decorators import login_required, user_passes_test
+
 
 
 
@@ -417,3 +419,112 @@ def ticket_success(request, ticket_id=None):
     return render(request, "ticket/ticket_success.html", {
         "ticket_data": ticket_data  # 👈 IMPORTANT: Your template expects this
     })
+
+
+def staff_required(view_func):
+    return user_passes_test(lambda u: u.is_active and u.is_staff)(view_func)
+
+
+@staff_required
+@login_required
+def scanner_page(request):
+    """
+    Renders the scanning page (camera + JS).
+    Only staff users can access.
+    """
+    # Extra safety: if someone reaches the page while not staff, block
+    if not request.user.is_staff:
+        return HttpResponseForbidden("You are not authorized to access the scanner.")
+
+    return render(request, "ticket/scan.html")
+
+import json
+
+from django.db import transaction
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
+from django.shortcuts import render, get_object_or_404
+
+from .models import Ticket, ScanLog
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_active and u.is_staff)
+def verify_ticket(request):
+    """
+    POST JSON: { "qr_data": "<payload>" }
+    Returns JSON with status: valid / used / invalid and helpful fields.
+    """
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"status": "invalid", "message": "Invalid JSON"}, status=400)
+
+    qr_data = data.get("qr_data")
+    if not qr_data:
+        return JsonResponse({"status": "invalid", "message": "No QR data provided"}, status=400)
+
+    # Expected format: "TICKET:<ticket_id>:<qr_token>"
+    try:
+        parts = qr_data.split(":")
+        if len(parts) == 3 and parts[0] == "TICKET":
+            ticket_id = parts[1]
+            qr_token = parts[2]
+        else:
+            return JsonResponse({"status": "invalid", "message": "Bad QR format"}, status=400)
+    except Exception:
+        return JsonResponse({"status": "invalid", "message": "Bad QR format"}, status=400)
+
+    # Lookup ticket (we'll lock row for safe concurrent access)
+    try:
+        with transaction.atomic():
+            ticket = Ticket.objects.select_for_update().get(id=ticket_id, qr_token=qr_token)
+
+            # Check payment status
+            if ticket.payment_status != "PAID":
+                ScanLog.objects.create(ticket=ticket, staff=request.user, result="not_paid")
+                return JsonResponse({"status": "invalid", "message": "Payment not completed"}, status=400)
+
+            # Check validity window
+            tt = ticket.ticket_type
+            now = timezone.now()
+            if tt.valid_from and now < tt.valid_from:
+                ScanLog.objects.create(ticket=ticket, staff=request.user, result="too_early")
+                return JsonResponse({"status": "invalid", "message": "Ticket not yet valid"}, status=400)
+            if tt.valid_until and now > tt.valid_until:
+                ScanLog.objects.create(ticket=ticket, staff=request.user, result="expired")
+                return JsonResponse({"status": "invalid", "message": "Ticket expired"}, status=400)
+
+            # If already used
+            if ticket.status == "USED":
+                ScanLog.objects.create(ticket=ticket, staff=request.user, result="already_used")
+                return JsonResponse({"status": "used", "message": "Ticket already used"}, status=200)
+
+            # Mark as used
+            ticket.status = "USED"
+            ticket.used_time = timezone.now()
+            ticket.used_by = request.user
+            ticket.save()
+
+            # Log success
+            ScanLog.objects.create(ticket=ticket, staff=request.user, result="valid")
+
+    except Ticket.DoesNotExist:
+        return JsonResponse({"status": "invalid", "message": "Ticket not found"}, status=404)
+    except Exception as e:
+        # Unexpected error
+        return JsonResponse({"status": "invalid", "message": f"Server error: {str(e)}"}, status=500)
+
+    # Return success details to front-end
+    return JsonResponse({
+        "status": "valid",
+        "ticket_id": str(ticket.id),
+        "event": ticket.ticket_type.event.name,
+        "type": ticket.ticket_type.name,
+        "message": "Ticket verified. Entry allowed."
+    }, status=200)
+
+@login_required
+def user_dashboard(request):
+    tickets = request.user.ticket_set.all()  # if users are linked
+    return render(request, "ticket/dashboard.html", {"tickets": tickets})

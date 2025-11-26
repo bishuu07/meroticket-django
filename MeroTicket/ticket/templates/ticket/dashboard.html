@@ -1,0 +1,13 @@
+<h2>Your Tickets</h2>
+
+{% if tickets %}
+  <ul>
+    {% for t in tickets %}
+      <li>{{ t.ticket_type.name }} - {{ t.id }} - {{ t.payment_status }}</li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>You have no tickets yet.</p>
+{% endif %}
+
+<a href="{% url 'logout' %}">Logout</a>

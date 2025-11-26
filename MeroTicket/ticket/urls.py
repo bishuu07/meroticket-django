@@ -2,6 +2,9 @@
 from django.urls import path
 from . import views
 from .views import  buy_ticket #verify_payment
+from django.contrib.auth import views as auth_views
+from ticket import views as ticket_views
+
 
 
 urlpatterns = [
@@ -14,6 +17,16 @@ urlpatterns = [
     path('initiate-khalti/', views.initiate_khalti, name='initiate_khalti'),
     path('khalti/callback/', views.khalti_callback, name='khalti_callback'),
     path('ticket/<uuid:ticket_id>/download/', views.download_ticket_pdf, name='download_ticket_pdf'),
+    #path('scan/', views.scanner_page, name='scanner_page'),
+    path('api/verify-ticket/', views.verify_ticket, name='verify_ticket'),
+    path("login/", auth_views.LoginView.as_view(template_name="auth/login.html"), name="login"),
+    path("logout/", auth_views.LogoutView.as_view(next_page="/"), name="logout"),
+    path("dashboard/", ticket_views.user_dashboard, name="user_dashboard"),
+   # path("scanner/", ticket_views.scanner_page, name="scanner"),
+    path('scanner/', views.scanner_page, name='scanner_page'),
+
+
+
 
 
 ]
