@@ -73,6 +73,9 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'ticket.context_processors.footer_settings',
+
+                
             ],
         },
     },
@@ -128,6 +131,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -141,6 +145,18 @@ KHALTI_PUBLIC_KEY = "b2184073be3b43df91b57d9d1e8b13c5"
 KHALTI_SECRET_KEY = "81376d71c2a94ea9a449ec0d01d73606"
 KHALTI_VERIFY_URL = "https://a.khalti.com/api/v2/epayment/lookup/"
 KHALTI_INITIATE_URL = "https://a.khalti.com/api/v2/epayment/initiate/"
+
+
+
+# FonePay Payment Settings 
+FONEPAY_MERCHANT_CODE = "<REDACTED_MERCHANT_CODE>"   
+FONEPAY_SECRET_KEY = "<REDACTED_SECRET_KEY>"         # HMAC key 
+FONEPAY_USERNAME = "<REDACTED_USERNAME>"
+FONEPAY_PASSWORD = "<REDACTED_PASSWORD>"
+
+# Choose dev or live base URL
+FONEPAY_API_BASE = "https://dev-merchantapi.fonepay.com/api"   # dev
+# For production: "https://merchantapi.fonepay.com/api"
 
 # DEBUG logging to console for development
 LOGGING = {

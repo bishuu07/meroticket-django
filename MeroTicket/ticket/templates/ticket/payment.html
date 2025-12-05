@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% comment %} <!DOCTYPE html>
 <html>
 <head>
     <title>Payment</title>
@@ -54,4 +54,68 @@ var config = {
 </script>
 
 </body>
+</html> {% endcomment %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment</title>
+    <script src="https://khalti.com/static/khalti-checkout.js"></script>
+</head>
+<body>
+    <h3>Pay for {{ ticket_type.name }}</h3>
+    <p>Price: Rs. {{ ticket_type.price }}</p>
+
+    <button id="khalti-button">Pay with Khalti</button>
+
+    <script>
+        // Django variables
+        var ticketId = {{ ticket_id }};
+        var ticketTypeId = {{ ticket_type.id }};
+        
+        var config = {
+            key: "{{ KHALTI_PUBLIC_KEY }}",
+            amount: {{ ticket_type.price }} * 100,  // paisa
+
+            onSuccess: function (payload) {
+                fetch("{% url 'verify_payment' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    body: JSON.stringify({
+                        payload: payload,       // send Khalti payload
+                        ticket_id: ticketId,    // your ticket record
+                        ticket_type_id: ticketTypeId
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        alert("Payment verification failed!");
+                    }
+                });
+            },
+
+            onError: function (error) {
+                console.log(error);
+                alert("Payment failed!");
+            },
+
+            onClose: function () {
+                console.log("Khalti widget closed");
+            }
+        };
+
+        var checkout = new KhaltiCheckout(config);
+        document.getElementById("khalti-button").onclick = function () {
+            checkout.show();
+        };
+    </script>
+
+</body>
 </html>
+

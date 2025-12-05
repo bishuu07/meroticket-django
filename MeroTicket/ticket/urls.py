@@ -20,12 +20,15 @@ urlpatterns = [
     #path('scan/', views.scanner_page, name='scanner_page'),
     path('api/verify-ticket/', views.verify_ticket, name='verify_ticket'),
     path("login/", auth_views.LoginView.as_view(template_name="auth/login.html"), name="login"),
-    path("logout/", auth_views.LogoutView.as_view(next_page="/"), name="logout"),
+    #path("logout/", auth_views.LogoutView.as_view(next_page="/"), name="logout"),
+    path("logout/", views.staff_logout, name="logout"),
+
     path("dashboard/", ticket_views.user_dashboard, name="user_dashboard"),
    # path("scanner/", ticket_views.scanner_page, name="scanner"),
     path('scanner/', views.scanner_page, name='scanner_page'),
-
-
+    path('initiate-fonepay/', views.initiate_fonepay, name='initiate_fonepay'),
+    path('check-fonepay-status/', views.check_fonepay_qr_status, name='check_fonepay_qr_status'),
+    
 
 
 

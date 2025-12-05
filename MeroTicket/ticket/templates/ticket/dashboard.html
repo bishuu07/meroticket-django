@@ -1,4 +1,4 @@
-<h2>Your Tickets</h2>
+{% comment %} <h2>Your Tickets</h2>
 
 {% if tickets %}
   <ul>
@@ -10,4 +10,4 @@
   <p>You have no tickets yet.</p>
 {% endif %}
 
-<a href="{% url 'logout' %}">Logout</a>
+<a href="{% url 'logout' %}">Logout</a> {% endcomment %}

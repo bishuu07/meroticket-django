@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Tickets Purchased</title>
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
+{% extends "ticket/base_user.html" %}
 
-<body class="bg-light">
+{% block title %}Tickets Purchased{% endblock %}
+
+{% block content %}
 
 <div class="container mt-5">
     <div class="card shadow p-4">
@@ -19,59 +15,45 @@
         {% for ticket in tickets %}
         <div class="mb-4">
             <h5><strong>Ticket {{ forloop.counter }}</strong></h5>
+
             <p><strong>Ticket ID:</strong> {{ ticket.id }}</p>
             <p><strong>Event:</strong> {{ ticket.ticket_type.event.name }}</p>
             <p><strong>Ticket Type:</strong> {{ ticket.ticket_type.name }}</p>
             <p><strong>Price:</strong> Rs. {{ ticket.ticket_type.price }}</p>
 
-            <img src="{{ ticket.qr_image.url }}" width="180" class="img-fluid border p-2">
+            <img src="{{ ticket.qr_image.url }}" width="180"
+                 class="img-fluid border p-2">
 
             <br><br>
-            <a href="{% url 'download_ticket_png' ticket.id %}" class="btn btn-primary btn-sm">
+
+            <a href="{% url 'download_ticket_png' ticket.id %}"
+               class="btn btn-primary btn-sm">
                 ⬇ Download Ticket PNG
             </a>
 
             <hr>
-            <a id="autoDownload{{ ticket.id }}" 
-   href="{% url 'download_ticket_pdf' ticket.id %}"
-   style="display:none;"></a>
+
+            <!-- Auto PDF download link -->
+            <a id="autoDownload{{ ticket.id }}"
+               href="{% url 'download_ticket_png' ticket.id %}"
+               style="display:none;">
+            </a>
         </div>
-        {% comment %} <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const firstPdfLink = document.querySelector("a[href*='download_ticket_pdf']");
-            if (firstPdfLink) {
-                setTimeout(() => {
-                    const link = document.createElement("a");
-                    link.href = firstPdfLink.href;
-                    link.download = "";
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }, 800); // small delay for page load
-            }
-        });
-        </script> {% endcomment %}
-        <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const links = document.querySelectorAll("[id^='autoDownload']");
-
-            let delay = 600;
-
-            links.forEach(link => {
-                setTimeout(() => {
-                    link.click();
-                }, delay);
-
-                delay += 800; // avoid browsers blocking multiple downloads at exact same time
-            });
-        });
-        </script>
-
-
         {% endfor %}
 
     </div>
 </div>
 
-</body>
-</html>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const links = document.querySelectorAll("[id^='autoDownload']");
+    let delay = 600;
+
+    links.forEach(link => {
+        setTimeout(() => { link.click(); }, delay);
+        delay += 800; // avoid browser blocking multiple simultaneous downloads
+    });
+});
+</script>
+
+{% endblock %}

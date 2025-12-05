@@ -1,8 +1,11 @@
 # ticket/views.py
 import base64
+from decimal import Decimal
 from tkinter import Image
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import TicketType, Ticket
+
+from .fonepay_utils import generate_hmac_sha512, make_prn
+from .models import FonepayQRRequest, PaymentOrder, TicketType, Ticket, Advertisement
 from django.utils.crypto import get_random_string
 import qrcode
 from io import BytesIO
@@ -23,6 +26,7 @@ from django.urls import reverse
 from reportlab.lib.pagesizes import letter
 from django.db import transaction
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth import logout
 
 
 
@@ -33,10 +37,25 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 
 
 
+
+'''def home(request):
+    events = Event.objects.all()
+    
+    return render(request, 'ticket/home.html', {'events': events})'''
 
 def home(request):
     events = Event.objects.all()
-    return render(request, 'ticket/home.html', {'events': events})
+    #ad = Advertisement.objects.filter(active=True).first()  # Get the first active ad
+    ads = Advertisement.objects.all()
+    
+    return render(request, 'ticket/home.html', {
+        'events': events,
+        'ads': ads,
+    })
+
+def staff_logout(request):
+    logout(request)
+    return redirect('login') 
     
 
 
@@ -62,7 +81,7 @@ def buy_ticket(request, tickettype_id):
     qty = max(1, qty)
 
     # Remaining tickets
-    remaining = ticket_type.limit - ticket_type.sold
+    remaining = ticket_type.limit #- ticket_type.sold
     if remaining <= 0:
         return render(request, "ticket/sold_out.html", {
             "ticket_type": ticket_type,
@@ -592,3 +611,335 @@ def verify_ticket(request):
 def user_dashboard(request):
     tickets = request.user.ticket_set.all()  # if users are linked
     return render(request, "ticket/dashboard.html", {"tickets": tickets})
+
+
+
+logger = logging.getLogger(__name__)
+
+# Endpoint: POST -> initiate_fonepay
+'''@csrf_exempt
+def initiate_fonepay(request):
+    """
+    Expects JSON POST:
+    {
+      "ticket_type_id": <int>,
+      "qty": <int>,
+      "remarks1": "EventName - seat" (optional),
+      "remarks2": "extra" (optional)
+    }
+    Returns JSON with qrMessage and thirdpartyQrWebSocketUrl on success.
+
+
+    """
+    
+
+
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        payload = json.loads(request.body)
+    except Exception as e:
+        logger.exception("Bad JSON in initiate_fonepay")
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    ticket_type = int(payload.get("ticket_type_id")) or request.session.get("selected_ticket_type_id")
+    qty = int(payload.get("qty", request.session.get("selected_qty", 1)))
+    # Ensure remarks are NEVER empty
+    remarks1 = ticket_type.event.name[:30]
+    remarks2 = ticket_type.name[:30]
+
+
+    if not ticket_type:
+        return JsonResponse({"error": "Missing ticket_type_id"}, status=400)
+
+    try:
+        tt = TicketType.objects.get(pk=ticket_type)
+    except TicketType.DoesNotExist:
+        return JsonResponse({"error": "TicketType not found"}, status=404)
+
+    # amount in decimal (as in docs, string numeric allowed). Using ticket price × qty
+    amount = int(ticket_type.price * qty)
+    amount_str = str(amount)
+
+
+    # Create PRN
+    prn = make_prn()
+
+    # HMAC message: AMOUNT,PRN,MERCHANT-CODE,REMARKS1,REMARKS2
+    # NOTE: per docs, values must not be URL-encoded and separated by commas
+    message = f"{amount_str},{prn},{settings.FONEPAY_MERCHANT_CODE},{remarks1},{remarks2}"
+
+    dv = generate_hmac_sha512(settings.FONEPAY_SECRET_KEY, message)
+
+    request_payload = {
+    "amount": amount_str,
+    "remarks1": remarks1,
+    "remarks2": remarks2,
+    "prn": prn,
+    "merchantCode": settings.FONEPAY_MERCHANT_CODE,
+    "dataValidation": dv,
+    "username": settings.FONEPAY_USERNAME,
+    "password": settings.FONEPAY_PASSWORD,
+}
+    logger.error("DEBUG-FP | Payload sent to FonePay: %s", request_payload)
+    logger.error("DEBUG-FP | DV message: %s", message)
+    logger.error("DEBUG-FP | DV generated: %s", dv)
+
+    api_url = f"{settings.FONEPAY_API_BASE}/merchant/merchantDetailsForThirdParty/thirdPartyDynamicQrDownload"
+    logger.debug("Calling FonePay QR API %s payload=%s", api_url, request_payload)
+    logger.error("DEBUG-FP | URL: %s", api_url)
+
+    try:
+        resp = requests.post(api_url, json=request_payload, timeout=20)
+        resp.raise_for_status()
+        resp_json = resp.json()
+    except requests.RequestException as e:
+        logger.exception("Network error calling FonePay thirdPartyDynamicQrDownload")
+        return JsonResponse({"error": "Failed contacting FonePay", "details": str(e)}, status=502)
+    except Exception as e:
+        logger.exception("Invalid JSON from FonePay")
+        return JsonResponse({"error": "Invalid response from FonePay", "details": str(e)}, status=502)
+
+    # Save mapping record
+    # Optionally link to PaymentOrder if you created one earlier. We'll create PaymentOrder now to keep parity with Khalti flow.
+    purchase_order_id = f"FONEPAY-{prn}"
+    po = PaymentOrder.objects.create(
+        purchase_order_id=purchase_order_id,
+        ticket_type=tt,
+        name=payload.get("name", ""),
+        phone=payload.get("phone", ""),
+        quantity=qty,
+        raw_response=resp_json
+    )
+
+    FonepayQRRequest.objects.create(
+        prn=prn,
+        payment_order=po,
+        amount=amount,
+        remarks1=request_payload["remarks1"],
+        remarks2=request_payload["remarks2"],
+        raw_response=resp_json
+    )
+
+    # Return important fields to front-end
+    result = {
+        "success": resp_json.get("success", True),
+        "qrMessage": resp_json.get("qrMessage"),
+        "thirdpartyQrWebSocketUrl": resp_json.get("thirdpartyQrWebSocketUrl"),
+        "prn": prn,
+        "payment_order_id": purchase_order_id,
+    }
+    logger.debug("Fonepay QR created: prn=%s response=%s", prn, result)
+    return JsonResponse(result)'''
+@csrf_exempt
+def initiate_fonepay(request):
+    """
+    Expected POST JSON:
+    {
+        "ticket_type_id": <int>,
+        "qty": <int>,
+        "name": "...",
+        "phone": "..."
+    }
+    Returns FonePay Dynamic QR JSON.
+    """
+
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    # -------------------------
+    # Parse JSON
+    # -------------------------
+    try:
+        payload = json.loads(request.body)
+    except Exception:
+        logger.exception("Bad JSON in initiate_fonepay")
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    # -------------------------
+    # Extract required fields
+    # -------------------------
+    ticket_type_id = payload.get("ticket_type_id")
+    qty = int(payload.get("qty", 1))
+
+    if not ticket_type_id:
+        return JsonResponse({"error": "Missing ticket_type_id"}, status=400)
+
+    # -------------------------
+    # Fetch TicketType object
+    # -------------------------
+    try:
+        tt = TicketType.objects.get(pk=int(ticket_type_id))
+    except TicketType.DoesNotExist:
+        return JsonResponse({"error": "TicketType not found"}, status=404)
+
+    # -------------------------
+    # Prepare remarks
+    # -------------------------
+    remarks1 = tt.event.name[:30]
+    remarks2 = tt.name[:30]
+
+    # -------------------------
+    # Price calculation
+    # (FonePay requires integer amount)
+    # -------------------------
+    amount = int(tt.price * qty)
+    amount_str = str(amount)
+
+    # -------------------------
+    # Generate PRN + DV
+    # -------------------------
+    prn = make_prn()  # 32-char code
+
+    # DV message
+    dv_message = (
+        f"{amount_str},{prn},{settings.FONEPAY_MERCHANT_CODE},{remarks1},{remarks2}"
+    )
+
+    dv = generate_hmac_sha512(settings.FONEPAY_SECRET_KEY, dv_message)
+
+    # -------------------------
+    # Build payload for FonePay
+    # -------------------------
+    request_payload = {
+        "amount": amount_str,
+        "remarks1": remarks1,
+        "remarks2": remarks2,
+        "prn": prn,
+        "merchantCode": settings.FONEPAY_MERCHANT_CODE,
+        "dataValidation": dv,
+        "username": settings.FONEPAY_USERNAME,
+        "password": settings.FONEPAY_PASSWORD,
+    }
+
+    api_url = (
+        f"{settings.FONEPAY_API_BASE}/merchant/merchantDetailsForThirdParty/thirdPartyDynamicQrDownload"
+    )
+
+    # -------------------------
+    # Debug Logs
+    # -------------------------
+    logger.error("DEBUG-FP | Payload sent to FonePay: %s", request_payload)
+    logger.error("DEBUG-FP | DV message: %s", dv_message)
+    logger.error("DEBUG-FP | DV generated: %s", dv)
+    logger.error("DEBUG-FP | URL: %s", api_url)
+
+    # -------------------------
+    # API CALL
+    # -------------------------
+    try:
+        resp = requests.post(api_url, json=request_payload, timeout=20)
+        resp.raise_for_status()
+        resp_json = resp.json()
+    except requests.RequestException as e:
+        logger.exception("Network error calling FonePay API")
+        return JsonResponse(
+            {"error": "Failed contacting FonePay", "details": str(e)}, status=502
+        )
+    except Exception as e:
+        logger.exception("Invalid JSON from FonePay")
+        return JsonResponse(
+            {"error": "Invalid response from FonePay", "details": str(e)}, status=502
+        )
+
+    # -------------------------
+    # Save Payment Order
+    # -------------------------
+    purchase_order_id = f"FONEPAY-{prn}"
+
+    po = PaymentOrder.objects.create(
+        purchase_order_id=purchase_order_id,
+        ticket_type=tt,
+        name=payload.get("name", ""),
+        phone=payload.get("phone", ""),
+        quantity=qty,
+        raw_response=resp_json,
+    )
+
+    FonepayQRRequest.objects.create(
+        prn=prn,
+        payment_order=po,
+        amount=amount,
+        remarks1=remarks1,
+        remarks2=remarks2,
+        raw_response=resp_json,
+    )
+
+    # -------------------------
+    # Return final response
+    # -------------------------
+    result = {
+        "success": resp_json.get("success", True),
+        "qrMessage": resp_json.get("qrMessage"),
+        "thirdpartyQrWebSocketUrl": resp_json.get("thirdpartyQrWebSocketUrl"),
+        "prn": prn,
+        "payment_order_id": purchase_order_id,
+    }
+
+    logger.debug("FonePay QR created: prn=%s response=%s", prn, result)
+
+    return JsonResponse(result)
+
+
+
+# Endpoint: POST -> check_fonepay_qr_status
+@csrf_exempt
+def check_fonepay_qr_status(request):
+    """
+    POST JSON:
+      { "prn": "<prn>" }
+    Returns payment status: success / failed / pending
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    try:
+        j = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    prn = j.get("prn")
+    if not prn:
+        return JsonResponse({"error": "Missing prn"}, status=400)
+
+    # Build DV: PRN,MERCHANT-CODE
+    message = f"{prn},{settings.FONEPAY_MERCHANT_CODE}"
+    dv = generate_hmac_sha512(settings.FONEPAY_SECRET_KEY, message)
+
+    api_url = f"{settings.FONEPAY_API_BASE}/merchant/merchantDetailsForThirdParty/thirdPartyDynamicQrGetStatus"
+    payload = {
+        "prn": prn,
+        "merchantCode": settings.FONEPAY_MERCHANT_CODE,
+        "dataValidation": dv,
+        "username": settings.FONEPAY_USERNAME,
+        "password": settings.FONEPAY_PASSWORD,
+    }
+
+    try:
+        resp = requests.post(api_url, json=payload, timeout=20)
+        resp.raise_for_status()
+        status_json = resp.json()
+    except requests.RequestException as e:
+        logger.exception("Network error checking FonePay QR status")
+        return JsonResponse({"error": "Failed contacting FonePay", "details": str(e)}, status=502)
+
+    # Example successful response contains: {"paymentStatus":"success","prn":...}
+    logger.debug("FonePay status for prn=%s -> %s", prn, status_json)
+
+    payment_status = status_json.get("paymentStatus") or status_json.get("payment_status") or status_json.get("paymentStatus".lower())
+    # normalize
+    if payment_status:
+        payment_status = payment_status.lower()
+
+    # Save raw_response to our record if exists
+    try:
+        req = FonepayQRRequest.objects.filter(prn=prn).first()
+        if req:
+            req.raw_response = status_json
+            req.save(update_fields=["raw_response"])
+    except Exception:
+        logger.exception("Failed saving raw_response for FonepayQRRequest %s", prn)
+
+    return JsonResponse({"prn": prn, "paymentStatus": payment_status or "unknown", "raw": status_json})
+
+

@@ -1,4 +1,96 @@
+{% extends 'ticket/base_user.html' %}
 {% load static %}
+
+{% block content %}
+
+<style>
+    body {
+        background: #f8f9fa;
+    }
+    .ticket-card {
+        border-radius: 12px;
+        border: 1px solid #dcdcdc;
+        background: #ffffff;
+        padding: 25px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    }
+    .qr-img {
+        width: 180px;
+        border: 6px solid #fff;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+        border-radius: 10px;
+    }
+</style>
+
+<div class="container mt-5">
+
+    <div class="text-center mb-4">
+        <h2 class="text-success fw-bold">🎉 Payment Successful!</h2>
+        <p>Your tickets have been generated successfully.</p>
+    </div>
+
+    {% for item in ticket_data %}
+        {% with ticket=item.ticket qr=item.qr_base64 %}
+
+        <div class="ticket-card mb-4">
+            <h4 class="fw-semibold text-primary">{{ ticket.ticket_type.event.name }}</h4>
+
+            <hr>
+
+            <p><strong>Ticket ID:</strong> {{ ticket.id }}</p>
+            <p><strong>Ticket Type:</strong> {{ ticket.ticket_type.name }}</p>
+            <p><strong>Price:</strong> Rs. {{ ticket.ticket_type.price }}</p>
+            <p><strong>Buyer Name:</strong> {{ ticket.purchaser_name }}</p>
+            <p><strong>Phone:</strong> {{ ticket.purchaser_phone }}</p>
+
+            <hr>
+
+            <h5>Your QR Code</h5>
+            <img src="data:image/png;base64,{{ qr }}" class="qr-img mt-2">
+
+            <div class="mt-4">
+                <a href="{% url 'download_ticket_png' ticket.id %}" class="btn btn-primary w-100">
+                    ⬇ Download Ticket
+                </a>
+
+                <!-- Hidden auto-download link -->
+                <a id="autoDownload{{ ticket.id }}" 
+                   href="{% url 'download_ticket_png' ticket.id %}" 
+                   style="display:none;">
+                </a>
+            </div>
+
+        </div>
+
+        {% endwith %}
+    {% endfor %}
+
+    <div class="text-center mt-4 mb-5">
+        <a href="/" class="btn btn-outline-secondary">Return to Home</a>
+    </div>
+
+</div>
+
+<!-- Auto download ALL generated tickets -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const links = document.querySelectorAll("[id^='autoDownload']");
+    let delay = 600;
+
+    links.forEach(link => {
+        setTimeout(() => {
+            link.click();
+        }, delay);
+        delay += 500; // stagger downloads
+    });
+});
+</script>
+
+{% endblock %}
+
+
+
+{% comment %} {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -64,21 +156,7 @@
                     style="display:none;"></a>
 
             </div>
-            {% comment %} <script>
-            document.addEventListener("DOMContentLoaded", function () {
-                const firstPdfLink = document.querySelector("a[href*='download_ticket_pdf']");
-                if (firstPdfLink) {
-                    setTimeout(() => {
-                        const link = document.createElement("a");
-                        link.href = firstPdfLink.href;
-                        link.download = "";
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    }, 800); // small delay for page load
-                }
-            });
-            </script> {% endcomment %}
+            
             <script>
             document.addEventListener("DOMContentLoaded", () => {
                 const links = document.querySelectorAll("[id^='autoDownload']");
@@ -103,4 +181,4 @@
 </div>
 
 </body>
-</html>
+</html> {% endcomment %}

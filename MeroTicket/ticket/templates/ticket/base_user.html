@@ -1,0 +1,81 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}MeroTicket_staff{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background: #ffffff;
+        }
+
+        /* Header styling */
+        header {
+            padding: 8px 15px !important; /* reduced padding */
+        }
+
+        .header-logo img {
+            height: 80px; /* smaller logo */
+            object-fit: contain;
+        }
+
+        /* Footer styling */
+        .footer-card {
+            background: #faf7ff;
+            border-radius: 16px;
+            padding: 18px;
+            border: 1px solid #eee;
+        }
+
+        .footer-icon {
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header class="shadow-sm bg-white">
+    <div class="container d-flex align-items-center">
+        
+        <!-- LOGO ON LEFT -->
+        <div class="header-logo me-auto">
+            <img src="{% static 'images/meroticket_logo.png' %}" alt="Logo">
+            
+        </div>
+
+        
+        
+    </div>
+</header>
+
+<!-- MAIN CONTENT -->
+<main class="container mt-3">
+    {% block content %}{% endblock %}
+</main>
+
+<!-- FOOTER -->
+<footer class="container mt-5 mb-3">
+    <div class="footer-card shadow-sm">
+        <div class="d-flex align-items-center mb-2">
+            <div class="footer-icon me-2">📞</div>
+            <div>
+                <strong>FOR INQUIRY</strong><br>
+                {{ footer_settings.phone_number }} | {{ footer_settings.phone_number2 }}
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center">
+            <div class="footer-icon me-2">📧</div>
+            <div>{{ footer_settings.email }}</div>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

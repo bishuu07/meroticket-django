@@ -11,7 +11,8 @@ class Event(models.Model):
     description = models.TextField(blank=True, null=True)
     active = models.BooleanField(default=True)  # Show on frontend or not
     date = models.DateTimeField()
-    logo = models.ImageField(upload_to="event_logos/", null=True, blank=True)  # 👈 NEW
+    location = models.CharField(max_length=255, blank=True, null=True)
+    
 
     
     def __str__(self):
@@ -93,6 +94,25 @@ class ScanLog(models.Model):
     def __str__(self):
         return f"{self.ticket.id} scanned by {self.staff}"
     
+class StaffScanLog(models.Model):
+    staff = models.ForeignKey(
+        'auth.User', 
+        on_delete=models.CASCADE, 
+        limit_choices_to={'is_staff': True}
+    )
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE)
+    ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE)
+    scanned_at = models.DateTimeField(auto_now_add=True)
+    result = models.CharField(max_length=30)  # e.g., VALID, USED, INVALID
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Ticket price at scan
+
+    def __str__(self):
+        return f"{self.staff.username} scanned {self.ticket.qr_token}"
+
+    class Meta:
+        ordering = ['-scanned_at']
+
+    
 
 class PaymentOrder(models.Model):
     purchase_order_id = models.CharField(max_length=50, unique=True)
@@ -102,5 +122,53 @@ class PaymentOrder(models.Model):
     raw_response = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     quantity = models.PositiveIntegerField(default=1)   # ← NEW
+
+
+
+class FonepayQRRequest(models.Model):
+    """
+    Stores dynamic QR requests to FonePay so we can map PRN -> PaymentOrder -> Ticket creation.
+    """
+    prn = models.CharField(max_length=50, unique=True)
+    payment_order = models.ForeignKey("PaymentOrder", on_delete=models.CASCADE, null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    remarks1 = models.CharField(max_length=160, blank=True)
+    remarks2 = models.CharField(max_length=50, blank=True)
+    raw_response = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"FonepayPRN {self.prn} - {self.amount}"
+
+
+
+
+
+
+class SiteSettings(models.Model):
+    
+    phone_number = models.CharField(max_length=50, blank=True, null=True)
+    phone_number2 = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Site Setting"
+        verbose_name_plural = "Site Settings"
+
+    def __str__(self):
+        return "Website Settings"
+    
+
+class Advertisement(models.Model):
+    image = models.ImageField(upload_to="ads/", blank=True, null=True)
+    text = models.CharField(max_length=255, blank=True, null=True)
+    active = models.BooleanField(default=True)
+    video = models.FileField(upload_to='ads/videos/', null=True, blank=True)
+
+from django.db import models
+from django.contrib.auth.models import User
+from django.db.models import Sum, Count, F
+from django.utils import timezone
+from .models import Ticket, TicketType
 
 
